@@ -1,0 +1,95 @@
+image: "armindocachada/skaffold-and-gcloud"
+
+services:
+ - docker:dind
+
+stages:
+  - build
+  - review
+  - production
+
+variables:
+  DOMAIN_NAME: example.com
+  PRODUCTION_DOMAIN_NAME: example.com
+
+build_review:
+  stage: build
+  environment:
+    name: $CI_COMMIT_REF_NAME
+    url: "https://$CI_ENVIRONMENT_SLUG.$DOMAIN_NAME"
+    on_stop: stop_review
+  script:
+    - <do_build>
+  only:
+    - branches
+  except:
+    - main
+
+build_production:
+  stage: build
+  environment:
+    name: production
+    url: "https://$PRODUCTION_DOMAIN_NAME"
+  script:
+    - echo 'doing build_production'
+  only:
+    - main
+
+recreate_review:
+  stage: review
+  script:
+    - echo 'doing recreate_review'
+  environment:
+    name: $CI_COMMIT_REF_NAME
+    url: "https://$CI_ENVIRONMENT_SLUG.$DOMAIN_NAME"
+    on_stop: stop_review
+  when: manual
+  only:
+    - branches
+  except:
+    - main
+  dependencies:
+  - build_review
+
+deploy_review:
+  stage: review
+  script:
+    - echo 'doing deploy_review'
+  environment:
+    name: $CI_COMMIT_REF_NAME
+    url: "https://$CI_ENVIRONMENT_SLUG.$DOMAIN_NAME"
+    on_stop: stop_review
+  when: manual
+  only:
+    - branches
+  except:
+    - main
+  dependencies:
+  - build_review
+
+stop_review:
+  stage: review
+  script:
+    - echo 'doing stop_review'
+  environment:
+    name: $CI_COMMIT_REF_NAME
+    url: "https://$CI_ENVIRONMENT_SLUG.$DOMAIN_NAME"
+    action: stop
+  dependencies:
+    - build_review
+  when: manual
+  except:
+    - main
+
+deploy_production:
+  stage: production
+  script:
+    - echo doing deploy_production
+  environment:
+    name: production
+    url: "https://$PRODUCTION_DOMAIN_NAME"
+  when: manual
+  only:
+    - main
+  dependencies:
+  - build_production
